@@ -1,10 +1,3 @@
-//
-//  Validation.swift
-//  
-//
-//  Created by Ian Sampson on 2020-12-18.
-//
-
 import Foundation
 import Crypto
 import Anchor
@@ -20,38 +13,58 @@ extension Attestation {
     // TODO: Rewrite as a struct with expected and received
     // or with compared values. Or add associated types.
     
-    func verify(challenge: Data, appID: String, keyID: Data, date: Date? = nil) throws {
-        // 1.
-        try verifyCertificates(date: date)
+    func verify(
+        challenge: Data,
+        appID: String,
+        keyID: Data,
+        date: Date? = nil,
+        steps: [AppAttest.Step]
+    ) throws {
+        if steps.contains(.verifyCertificates) {
+            // 1.
+            try verifyCertificates(date: date)
+        }
         // Fails to validate leaf certificate
         
-        // 2 & 3.
-        let nonce = self.nonce(for: challenge)
-        
-        // 4.
-        let octet = try extractOctet()
-        guard octet == Array(nonce) else {
-            throw ValidationError.invalidNonce
+        if steps.contains(.verifyChallenge) {
+            // 2 & 3.
+            let nonce = self.nonce(for: challenge)
+            
+            // 4.
+            let octet = try extractOctet()
+            guard octet == Array(nonce) else {
+                throw ValidationError.invalidNonce
+            }
         }
         
-        // 5.
-        guard publicKeyMatchesKeyID(keyID) else {
-            throw ValidationError.invalidPublicKey
+        if steps.contains(.compareKeyID) {
+            // 5.
+            guard publicKeyMatchesKeyID(keyID) else {
+                throw ValidationError.invalidPublicKey
+            }
         }
         
-        // 6.
-        try authenticatorData.verify(appID: appID)
+        if steps.contains(.verifyAppID) {
+            // 6.
+            try authenticatorData.verify(appID: appID)
+        }
         
-        // 7.
-        try authenticatorData.verifyCounter()
+        if steps.contains(.verifyCounter) {
+            // 7.
+            try authenticatorData.verifyCounter()
+        }
         
-        // 8.
-        // Already checked aaguid.
-        // However we could change that to a method,
-        // e.g. verifyAAGUID or extractAAGUID.
+        if steps.contains(.verifyAAGUID) {
+            // 8.
+            // Already checked aaguid.
+            // However we could change that to a method,
+            // e.g. verifyAAGUID or extractAAGUID.
+        }
         
-        // 9.
-        try authenticatorData.verifyKeyID(keyID)
+        if steps.contains(.verifyKeyID) {
+            // 9.
+            try authenticatorData.verifyKeyID(keyID)
+        }
     }
     
     /// 1. Verify that the x5c array contains the intermediate and leaf certificates for App Attest,
